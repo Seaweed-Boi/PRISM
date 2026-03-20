@@ -245,6 +245,100 @@ Examples:
 
 ---
 
-## One-Line Pitch
+## Adversarial Defense & Anti-Spoofing Strategy (Market Crash Response)
 
-PRISM protects gig workers by predicting their expected income and automatically compensating them when external disruptions reduce their earnings.
+This section addresses a critical adversarial scenario involving coordinated fraud through GPS spoofing, where malicious actors attempt to trigger false parametric claims at scale. PRISM incorporates a behavior-based verification framework to ensure system resilience against such attacks.
+
+---
+
+### 1. Differentiation: Genuine Worker vs Spoofed Actor
+
+PRISM does not rely solely on location data. Instead, it evaluates a **multi-signal authenticity score** to distinguish between legitimate delivery activity and fraudulent behavior.
+
+A genuine delivery partner typically exhibits:
+- Continuous and road-constrained movement patterns  
+- Realistic speed profiles consistent with two-wheeler mobility  
+- Active engagement with the delivery platform (order acceptance/rejection)  
+- Logical correlation between location, time, and delivery demand  
+
+A spoofed actor typically exhibits:
+- Static or non-continuous movement patterns  
+- Sudden location jumps into high-risk zones  
+- Absence of delivery activity despite being in high-demand regions  
+- Synchronized behavior across multiple accounts  
+
+**Decision Logic:**
+
+If:
+- Income loss is detected  
+- A valid external disruption is confirmed  
+- The authenticity score falls below a defined threshold  
+
+→ The claim is **flagged for verification instead of being auto-approved**
+
+---
+
+### 2. Data Signals Beyond GPS
+
+To ensure robust fraud detection, PRISM analyzes multiple complementary data signals:
+
+**a. Movement Intelligence**
+- Speed consistency and continuity  
+- Route validation against real-world road networks  
+
+**b. Activity Signals**
+- Order interaction logs (acceptance/rejection patterns)  
+- Application usage behavior (foreground/background activity)  
+
+**c. Network & Device Signals**
+- IP address consistency  
+- Device fingerprinting to detect multiple accounts on a single device  
+
+**d. Behavioral Patterns**
+- Repeated claims aligned with disruption events  
+- Unrealistically consistent income loss patterns  
+- Sudden inactivity coinciding with trigger conditions  
+
+**e. Group Anomaly Detection**
+- High-density claims originating from identical coordinates  
+- Temporal synchronization of claims across multiple users  
+- Abnormal claim spikes within localized geographic clusters  
+
+These signals are aggregated into a **Fraud Risk Score** using anomaly detection techniques.
+
+---
+
+### 3. UX Balance: Fairness for Legitimate Workers
+
+PRISM ensures that fraud prevention mechanisms do not negatively impact genuine users by implementing a **two-tier claim processing system**:
+
+**Auto-Approved Claims**
+- High authenticity score  
+- Verified disruption  
+→ Immediate payout  
+
+**Flagged Claims (Soft Verification)**
+- Medium or low authenticity score  
+→ Temporary hold with expedited validation  
+
+**Verification Methods:**
+- Passive activity monitoring  
+- Movement consistency checks  
+- Cross-validation with nearby worker activity patterns  
+
+**Fail-Safe Mechanisms:**
+- Legitimate workers experiencing connectivity issues are not immediately penalized  
+- Provisional payouts may be issued in borderline cases  
+- Final claim decisions are updated after sufficient validation data is collected  
+
+---
+
+### Core Principle
+
+PRISM transitions from **location-based trust to behavior-based trust**.
+
+Instead of relying solely on “Where is the worker?”, the system evaluates “Is the worker behaving like a legitimate delivery partner within the given environment?”
+
+---
+
+PRISM is designed to be resilient not only against isolated fraudulent attempts but also against coordinated, large-scale adversarial attacks targeting the insurance ecosystem.
