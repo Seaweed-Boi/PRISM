@@ -1,0 +1,31 @@
+>> 1. Onboarding new worker in PRISM central zone...
+    Worker ID Data: {'name': 'Fast Demo Worker', 'platform': 'Swiggy', 'zone': 'central', 'working_hours': '08:00-18:00', 'id': 4, 'created_at': '2026-03-26T16:59:52.677510'}
+>> 2. Generating PRISM parametric policy for Worker ID: 4...
+    Policy ID Data: {'id': 5, 'worker_id': 4, 'week_start': '2026-03-26', 'week_end': '2026-04-02', 'risk_tier': 'medium', 'premium': 20.0, 'expected_hourly_income': 138.39, 'status': 'active', 'created_at': '2026-03-26T16:59:54.752382'}
+>> 3. Triggering claim block (Disruption: Rain) with simulated GPS + ML scoring...
+
+========= PRISM PIPELINE DECISION =========
+{
+  "id": 4,
+  "worker_id": 4,
+  "policy_id": 5,
+  "trigger_source": "Rain (Heavy Rain)",
+  "expected_income": 500.0,
+  "actual_income": 100.0,
+  "loss_amount": 400.0,
+  "fraud_score": 0.036,
+  "status": "approved",
+  "created_at": "2026-03-26T16:59:56.821440"
+}
+===========================================
+
+>> 4. Pipeline Component Health Status...
+    - [Security] Cloudflare Security Middleware : ACTIVE
+    - [Fraud Detection] Anomaly Detection (ML) : ACTIVE
+    - [Fraud Detection] Location Check (GPS) : ACTIVE
+    - [Fraud Detection] Activity Validation : ACTIVE
+    - [Fraud Detection] Duplicate Check (Redis) : DEGRADED
+    - [Scoring] Fraud Score Aggregator : ACTIVE
+    - [Decision] Decision Engine : ACTIVE
+
+>> Flow Complete. Output captured successfully!
