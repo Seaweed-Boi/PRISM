@@ -110,3 +110,182 @@ def test_fraud_pipeline_reject(mock_anomaly, mock_fraud_svc):
     # Composite = 0.27 + 0.175 + 0.225 + 0.19 = 0.86
     assert res.fraud_score == 0.86
     assert res.decision["decision"] == "reject"
+
+# ══════════════════════════════════════════════════════════════════════════
+# NEW — Dataset Generator Tests
+# ══════════════════════════════════════════════════════════════════════════
+
+import os
+import pandas as pd
+
+class TestDatasetGenerator:
+
+    def test_generate_returns_dataframe(self, tmp_path):
+        from app.ml.generate_dataset import generate
+        out = str(tmp_path / "test_claims.csv")
+        df = generate(n_samples=200, fraud_rate=0.18, output_path=out)
+        assert isinstance(df, pd.DataFrame)
+
+    def test_dataset_has_correct_columns(self, tmp_path):
+        from app.ml.generate_dataset import generate
+        out = str(tmp_path / "test_claims.csv")
+        df = generate(n_samples=200, fraud_rate=0.18, output_path=out)
+        required = [
+            "worker_id", "policy_id", "zone",
+            "expected_income", "actual_income", "income_delta",
+            "delta_ratio", "gps_offset_m", "disruption_score",
+            "activity_score", "claim_hour", "is_duplicate",
+            "fraud_signals", "is_fraud",
+        ]
+        for col in required:
+            assert col in df.columns, f"Missing column: {col}"
+
+    def test_dataset_row_count(self, tmp_path):
+        from app.ml.generate_dataset import generate
+        out = str(tmp_path / "test_claims.csv")
+        df = generate(n_samples=500, fraud_rate=0.18, output_path=out)
+        assert len(df) == 500
+
+    def test_fraud_label_is_binary(self, tmp_path):
+        from app.ml.generate_dataset import generate
+        out = str(tmp_path / "test_claims.csv")
+        df = generate(n_samples=200, fraud_rate=0.18, output_path=out)
+        assert set(df["is_fraud"].unique()).issubset({0, 1})
+
+    def test_feature_ranges_are_valid(self, tmp_path):
+        from app.ml.generate_dataset import generate
+        out = str(tmp_path / "test_claims.csv")
+        df = generate(n_samples=500, fraud_rate=0.18, output_path=out)
+        assert df["gps_offset_m"].min() >= 0
+        assert df["disruption_score"].between(0, 1).all()
+        assert df["activity_score"].between(0, 1).all()
+        assert df["claim_hour"].between(0, 23).all()
+        assert df["expected_income"].gt(0).all()
+
+    def test_labelling_rule_two_signals_is_fraud(self):
+        from app.ml.generate_dataset import _label
+        result = _label(
+            gps=6000,         # signal 1 — out of zone
+            dis=0.10,         # signal 2 — no real disruption
+            act=0.80,
+            hour=14,
+            delta_ratio=0.50,
+            is_dup=False,
+        )
+        assert result == 1
+
+    def test_labelling_rule_one_signal_is_legit(self):
+        from app.ml.generate_dataset import _label
+        result = _label(
+            gps=6000,         # signal 1 only
+            dis=0.60,         # ok
+            act=0.80,         # ok
+            hour=14,          # ok
+            delta_ratio=0.50, # ok
+            is_dup=False,
+        )
+        assert result == 0
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# NEW — ML Model Tests
+# ══════════════════════════════════════════════════════════════════════════
+
+import pytest
+class TestMLModel:
+
+    @pytest.fixture(scope="class")
+    def trained_bundle(self, tmp_path_factory):
+        from app.ml.generate_dataset import generate
+        from app.ml.train_model import load_data, train_random_forest, save_model, load_model
+        import pickle
+
+        tmp = tmp_path_factory.mktemp("ml_test")
+        data_path  = str(tmp / "claims.csv")
+        model_path = str(tmp / "model.pkl")
+        report_path = str(tmp / "report.txt")
+
+        # Step 1 — generate small dataset
+        generate(n_samples=800, fraud_rate=0.18, output_path=data_path)
+
+        # Step 2 — load data and train directly (no path juggling)
+        from sklearn.model_selection import train_test_split
+        X, y, le = load_data(data_path)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.20, random_state=42, stratify=y
+        )
+        model = train_random_forest(X_train, y_train)
+
+        # Step 3 — save to temp path directly
+        from app.ml.train_model import FEATURE_COLS
+        import pandas as pd
+        bundle = {
+            "model":         model,
+            "label_encoder": le,
+            "feature_cols":  FEATURE_COLS,
+            "version":       "1.0.0",
+            "trained_on":    pd.Timestamp.now().isoformat(),
+        }
+        with open(model_path, "wb") as f:
+            pickle.dump(bundle, f)
+
+        # Step 4 — load and return
+        return load_model(model_path)
+
+    def test_bundle_has_required_keys(self, trained_bundle):
+        assert "model"         in trained_bundle
+        assert "label_encoder" in trained_bundle
+        assert "feature_cols"  in trained_bundle
+
+    def test_score_returns_float_in_range(self, trained_bundle):
+        from app.ml.train_model import ml_fraud_score
+        score = ml_fraud_score(
+            trained_bundle,
+            gps_offset_m=200, disruption_score=0.75,
+            activity_score=0.85, claim_hour=14,
+            delta_ratio=0.55, income_delta=110.0,
+            is_duplicate=0, zone="central",
+        )
+        assert isinstance(score, float)
+        assert 0.0 <= score <= 1.0
+
+    def test_legit_claim_scores_low(self, trained_bundle):
+        from app.ml.train_model import ml_fraud_score
+        score = ml_fraud_score(
+            trained_bundle,
+            gps_offset_m=150,
+            disruption_score=0.80,
+            activity_score=0.90,
+            claim_hour=14,
+            delta_ratio=0.55,
+            income_delta=110.0,
+            is_duplicate=0,
+            zone="central",
+        )
+        assert score < 0.4, f"Legit claim scored too high: {score}"
+
+    def test_fraud_claim_scores_high(self, trained_bundle):
+        from app.ml.train_model import ml_fraud_score
+        score = ml_fraud_score(
+            trained_bundle,
+            gps_offset_m=12000,
+            disruption_score=0.05,
+            activity_score=0.02,
+            claim_hour=3,
+            delta_ratio=0.97,
+            income_delta=180.0,
+            is_duplicate=1,
+            zone="unknown",
+        )
+        assert score > 0.5, f"Fraud claim scored too low: {score}"
+
+    def test_unknown_zone_does_not_crash(self, trained_bundle):
+        from app.ml.train_model import ml_fraud_score
+        score = ml_fraud_score(
+            trained_bundle,
+            gps_offset_m=300, disruption_score=0.6,
+            activity_score=0.7, claim_hour=11,
+            delta_ratio=0.45, income_delta=90.0,
+            is_duplicate=0, zone="mars",
+        )
+        assert 0.0 <= score <= 1.0

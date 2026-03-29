@@ -1,0 +1,31 @@
+PRISM Fraud Model — Training Report
+Generated: 2026-03-29T08:06:22.353660
+========================================================
+
+========================================================
+  Model : Random Forest
+========================================================
+  Precision  : 0.8929   (of flagged fraud, how many were real?)
+  Recall     : 1.0000   (of all fraud, how many did we catch?)
+  F1 Score   : 0.9434   (primary metric — balances both)
+  AUC-ROC    : 0.9976   (1.0 = perfect, 0.5 = random)
+
+  Confusion Matrix:
+                   Predicted legit  Predicted fraud
+  Actual legit            132                3
+  Actual fraud              0               25
+
+  True positives  (fraud caught)        : 25
+  False negatives (fraud missed)        : 0   <- minimise this
+  False positives (legit wrongly flagged): 3   <- minimise this
+========================================================
+    gps_offset_m           0.3312  #############
+    activity_score         0.3013  ############
+    disruption_score       0.1635  ######
+    claim_hour             0.0829  ###
+    delta_ratio            0.0739  ##
+    income_delta           0.0431  #
+    zone_encoded           0.0041  
+    is_duplicate           0.0000  
+
+Best model: Random Forest | F1=0.9434 | AUC=0.9976
